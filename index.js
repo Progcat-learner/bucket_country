@@ -1,4 +1,4 @@
- export default {
+export default {
   async fetch(request, env) {
     const url = new URL(request.url);
     const match = url.pathname.match(/^\/secure\/([A-Z]{2})$/);
@@ -6,21 +6,25 @@
     if (match) {
       const countryCode = match[1];
 
-      try {
-        const object = await env.COUNTRY_FLAGS.get(`${countryCode}.png`);
-        if (!object) {
-          return new Response("Flag not found", { status: 404 });
-        }
+      // Use correct binding
+      let object = await env.MY_BUCKET.get(`${countryCode}.png`);
 
-        return new Response(object.body, {
-          headers: {
-            "Content-Type": "image/png",
-            "Cache-Control": "public, max-age=3600",
-          },
-        });
-      } catch (err) {
-        return new Response("Error fetching from R2", { status: 500 });
+      if (!object) {
+        object = await env.MY_BUCKET.get("default.png");
+        if (!object) {
+          return new Response("Flag not found and no fallback image available.", {
+            status: 404,
+            headers: { "Content-Type": "text/plain" },
+          });
+        }
       }
+
+      return new Response(object.body, {
+        headers: {
+          "Content-Type": "image/png",
+          "Cache-Control": "public, max-age=3600",
+        },
+      });
     }
 
     return new Response("Not Found", { status: 404 });
